@@ -43,6 +43,7 @@ dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
   "ipykernel",
+  'loguru',
 ]
 [tool.hatch.envs.default.scripts]
 test = "pytest {args:tests}"

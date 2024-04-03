@@ -3,6 +3,8 @@ from .utils import TaskValidationError, flatten_list, status_table_name
 from typing import Optional, Union
 from caveclient import CAVEclient
 from neuvueclient import NeuvueQueue
+from concurrent.futures import ThreadPoolExecutor
+from loguru import logger
 
 
 @attrs.define
@@ -35,7 +37,7 @@ class Task:
 
     states: list
     representative_point: list
-    instructions = str
+    instructions: Optional[str] = None
     id: Optional[int] = None
     annotation_kws: Optional[dict] = None
     point_field: str = "pt_position"
@@ -111,20 +113,22 @@ class TaskList:
     cave_status_table: Optional[str] = None
     cave_broadcast_table: Optional[str] = None
     cave_broadcast_mapping: Optional[dict] = None
-    task_instruction: Optional[dict] = None
+    task_instruction: Optional[str] = None
     representative_point_resolution: Optional[list] = None
     annotation_kws: Optional[dict] = None
     status_field: Optional[str] = "tag"
     priority: Optional[int] = 1
 
     def initial_status_annotation(self, task_id):
+        "Generate the initial status reference annotation for a task."
         anno = {
             "target_id": task_id,
-            "status_field": self.initial_status,
+            self.status_field: self.initial_status,
         }
         return anno
 
     def neuvue_metadata(self, task):
+        "Return single neuvue item metadata"
         meta = {
             "task_id": task.id,
             "cave_task_table": self.cave_task_table,
@@ -136,13 +140,14 @@ class TaskList:
         return meta
 
     def task_to_neuvue_list(self, task):
+        "Return a list of all neuvue items for a given proofreading task as they are going to neuvue."
         return [
             {
                 "author": self.author,
                 "assignees": self.task_assignee(task),
                 "instructions": self.neuvue_instructions(task),
                 "namespace": self.namespace,
-                "metadata": self.neuvue_metadata,
+                "metadata": self.neuvue_metadata(task),
                 "ng_state": state,
                 "seg_id": task.seg_id,
                 "priority": self.task_priority(task),
@@ -151,12 +156,15 @@ class TaskList:
         ]
 
     def neuvue_tasks(self):
+        "Return a list of all tasks as they are going to neuvue."
         return flatten_list([self.task_to_neuvue_list(task) for task in self.tasks])
 
     def neuvue_instructions(self, task):
+        "Return formatted instructions for neuvue."
         return {"prompt": task.instructions}
 
     def task_priority(self, task, fallback_priority=1):
+        "Get task priority, allowing for task-specific or global priority."
         pr = None
         if task.priority:
             pr = task.priority
@@ -167,6 +175,7 @@ class TaskList:
         return pr
 
     def validate_tasks(self):
+        "Ensure all tasks have sufficient metadata."
         if self.new_tasks is False:
             for task in self.tasks:
                 if task.id is None:
@@ -182,6 +191,7 @@ class TaskList:
             self.task_assignee(task)
 
     def task_assignee(self, task):
+        "Set assignees for task, allowing for task-specific or global assignees."
         assignees = self.assignees
         if task.assignees:
             assignees = task.assignees
@@ -196,9 +206,11 @@ class TaskList:
         self.validate_tasks()
         if self.annotation_kws is None:
             self.annotation_kws = {}
+        if self.cave_status_table is None:
+            self.cave_status_table = status_table_name(self.cave_task_table)
 
 
-class TaskDistributer:
+class TaskPublisher:
     def __init__(
         self,
         tasklist: TaskList,
@@ -227,28 +239,39 @@ class TaskDistributer:
     def _validate_cave_tables(self):
         table_list = self.caveclient.annotation.get_tables()
         if self.tasklist.cave_task_table not in table_list:
-            raise TaskValidationError(f'Table "{self.tasklist.cave_task_table}" not in CAVE annotation tables')
+            msg = f'Table "{self.tasklist.cave_task_table}" not in CAVE annotation tables'
+            raise TaskValidationError(msg)
         if self.tasklist.cave_status_table not in table_list:
-            raise TaskValidationError(f'Table "{self.tasklist.cave_status_table}" not in CAVE annotation tables')
+            msg = f'Table "{self.tasklist.cave_status_table}" not in CAVE annotation tables'
+            raise TaskValidationError(msg)
         pass
 
-    def initialize_tasks(self):
+    def publish_tasks(self):
         # Uploads the initial proofreading annotations and status annotations associated with them.
         # Also, populates a task id in each task.
-        self._cave_annotations()
+        main_annos, status_annos = self._cave_annotations()
 
-        # Broadcasts the various states to a neuvue queue task
-        self._post_neuvue_tasks()
+        # Publish the various states to a neuvue queue task
+        nv_data = self._post_neuvue_tasks()
+        return (main_annos, status_annos), nv_data
 
     def dry_run(self):
         # Return annotation dictionaries and neuvue task dictionaries without posting.
-        pass
+        main_annos, status_annos = self._cave_annotations(dry_run=True)
+        nv_tasks = self._post_neuvue_tasks(dry_run=True)
+        self._reset_tasks()
+        return (main_annos, status_annos), nv_tasks
 
-    def _cave_annotations(self, dry_run=False):
-        stage = self._generate_initial_task_annotations(self)
-        self._cave_task_annotations(stage)
-        self._cave_status_annotations()
-        return stage.annotation_
+    def _reset_tasks(self):
+        for task in self.tasklist.tasks:
+            if task.id < 0:
+                task.set_id(None)
+
+    def _cave_annotations(self, *, dry_run=False):
+        stage = self._generate_initial_task_annotations()
+        self._cave_task_annotations(stage, dry_run=dry_run)
+        status_stage = self._cave_status_annotations(dry_run=dry_run)
+        return stage.annotation_list, status_stage.annotation_list
 
     def _generate_initial_task_annotations(self):
         # Uploads annotationss and stores the annotations id in the task
@@ -259,24 +282,47 @@ class TaskDistributer:
             stage.add(**task.as_new_annotation)
         return stage
 
-    def _cave_task_annotations(self, stage, dry_run=False):
+    def _cave_task_annotations(self, stage, *, dry_run=False):
         # Posts all annotations and stores the annotation id in
-        if dry_run is not False:
+        if dry_run is False:
             anno_ids = self.caveclient.annotation.upload_staged_annotations(stage)
+            for task, anno_id in zip(self.tasklist.tasks, anno_ids):
+                task.set_id(anno_id)
+            logger.info(f"Uploaded {len(anno_ids)} task annotations to {self.tasklist.cave_task_table}")
         else:
             anno_ids = range(len(self.tasklist.tasks))
-        for task, anno_id in zip(self.tasklist.tasks, anno_ids):
-            task.set_id(anno_id)
+            for task, anno_id in zip(self.tasklist.tasks, anno_ids):
+                if task.id is None:
+                    # Start at negative one for dry runs to avoid confusion with real ids.
+                    task.set_id(-1 - anno_id)
 
-    def _cave_status_annotations(self):
+    def _cave_status_annotations(self, *, dry_run=False):
         stage = self.caveclient.annotation.stage_annotations(self.tasklist.cave_status_table)
-        for task in self.tasklist:
+        for task in self.tasklist.tasks:
             stage.add(**self.tasklist.initial_status_annotation(task.id))
-        self.caveclient.annotation.upload_staged_annotations(stage)
+        if dry_run is False:
+            self.caveclient.annotation.upload_staged_annotations(stage)
+            logger.info(
+                f"Uploaded {len(stage.annotation_list)} status annotations to {self.tasklist.cave_status_table}"
+            )
+        return stage
 
-    def _post_neuvue_tasks(self):
+    def _post_neuvue_tasks(self, *, dry_run=False):
         nv_tasks = self.tasklist.neuvue_tasks()
-        self._broadcast_neuvue_tasks(nv_tasks)
+        self._broadcast_neuvue_tasks(nv_tasks, dry_run=dry_run)
+        return nv_tasks
 
-    def _generate_task_arguments(self):
-        return []
+    def _broadcast_neuvue_tasks(self, nv_tasks, *, dry_run=False):
+        if dry_run is True:
+            return
+        with ThreadPoolExecutor(max_workers=10) as exe:
+            resp = []
+            for task in nv_tasks:
+                resp.append(
+                    exe.submit(
+                        self.nv_client.post_task_broadcast,
+                        **task,
+                    )
+                )
+            logger.info(f"Posted {len(nv_tasks)} tasks to Neuvue")
+        return [r.result() for r in resp]
