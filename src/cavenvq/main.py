@@ -1,10 +1,17 @@
-import attrs
-from .utils import TaskValidationError, flatten_list, status_table_name
-from typing import Optional, Union
-from caveclient import CAVEclient
-from neuvueclient import NeuvueQueue
 from concurrent.futures import ThreadPoolExecutor
+from typing import Optional, Union
+
+import attrs
+import numpy as np
+import pandas as pd
+from caveclient import CAVEclient
 from loguru import logger
+from neuvueclient import NeuvueQueue
+
+from cavenvq.utils import TaskValidationError, flatten_list, status_table_name
+
+DEFAULT_METADATA_COLUMNS = ["task_id", "cave_task_table", "cave_status_table", "next_status", "processed"]
+NV_METADATA_COLUMN_NAME = "metadata"
 
 
 @attrs.define
@@ -135,7 +142,9 @@ class TaskList:
             "cave_status_table": self.cave_status_table,
             "cave_broadcast_table": self.cave_broadcast_table,
             "cave_broadcast_mapping": self.cave_broadcast_mapping,
+            "initial_status": self.initial_status,
             "next_status": self.next_status,
+            "processed": False,
         }
         return meta
 
@@ -326,3 +335,190 @@ class TaskPublisher:
                 )
             logger.info(f"Posted {len(nv_tasks)} tasks to Neuvue")
         return [r.result() for r in resp]
+
+
+class QueueReader:
+    metadata_columns = DEFAULT_METADATA_COLUMNS
+
+    def __init__(
+        self,
+        caveclient: CAVEclient,
+        nv_client: NeuvueQueue,
+        nv_namespace: Optional[str] = None,
+    ):
+        """Process tasks from Neuvue and update CAVE accordingly
+
+        Parameters
+        ----------
+        caveclient : CAVEclient
+            Initialized CAVEclient object.
+        nv_client : NeuvueQueue
+            Initialized NeuvueQueue object.
+        nv_namespace : str
+            Neuvue namespace.
+        """
+        self.nv_namespace = nv_namespace
+        self.caveclient = caveclient
+        self.nv_client = nv_client
+
+    def get_task_data(
+        self,
+        nv_namespace: Optional[str] = None,
+        extra_sieve_filters: Optional[dict] = None,
+        task_id_column="task_id",
+    ):
+        """Get task data from Neuvue
+
+        Parameters
+        ----------
+        nv_namespace : Optional[str]
+            Name of the neuvue namespace to check, by default None
+        extra_sieve_filters : Optional[dict]
+            Additional sieve filters to use for task checking, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            Task description dataframe.
+        """
+        sieve = {"namespace": nv_namespace or self.nv_namespace}
+        if "status" in sieve:
+            msg = "QueueReader needs to read all tasks, not just those with a specific status"
+            raise ValueError(msg)
+
+        sieve.update(extra_sieve_filters or {})
+
+        task_df = self.nv_client.get_tasks(
+            sieve=sieve,
+            convert_states_to_json=False,
+        )
+        for col in self.metadata_columns:
+            task_df[col] = [row[NV_METADATA_COLUMN_NAME].get(col) for _, row in task_df.iterrows()]
+        task_df.dropna(subset=self.metadata_columns, inplace=True)
+        task_df[task_id_column] = task_df[task_id_column].astype(int)
+
+        task_df = self._identify_finished_tasks(task_df)
+        return task_df
+
+    def _identify_finished_tasks(
+        self,
+        task_df: pd.DataFrame,
+        task_id_column: str = "task_id",
+        status_column: str = "status",
+        finished_status: str = "closed",
+        task_is_complete_column: str = "is_complete",
+    ):
+        task_df[task_is_complete_column] = task_df.groupby(task_id_column)[status_column].transform(
+            lambda x: np.all(np.array(x) == finished_status)
+        )
+        return task_df
+
+    def get_cave_annotations(
+        self,
+        task_df: pd.DataFrame,
+        task_id_column: str = "task_id",
+        task_is_complete_column: str = "is_complete",
+    ):
+        """Produce a list of annotations to delete and generate from a task dataframe.
+
+        Parameters
+        ----------
+        task_df : pd.DataFrame
+            Task dataframe from the function `get_task_data`.
+        task_id_column : str, optional
+            Name of the column holding task id, by default "task_id"
+        task_is_complete_column : str, optional
+            , by default "is_complete"
+
+        Returns
+        -------
+        to_delete : dict
+            Dictionary of CAVE table name to list of annotation ids to delete.
+        to_add : dict
+            Dictionary of CAVE table name to list of new annotations to be added.
+        """
+        task_df_complete = task_df.query(f"{task_is_complete_column} == True")
+        task_df_single = task_df_complete.drop_duplicates(subset=task_id_column)
+
+        # Get the task tables and id map as a dictionary
+        table_and_id_map = (
+            task_df_single.groupby("cave_status_table")[task_id_column].agg(lambda x: np.unique(x).tolist()).to_dict()
+        )
+        next_status_map = (
+            task_df_single.groupby(["cave_status_table", task_id_column])["next_status"]
+            .agg(lambda x: list(x)[0])
+            .to_dict()
+        )
+
+        anno_to_delete = {}
+        anno_to_add = {}
+        for table, task_ids in table_and_id_map.items():
+            current_status = self.caveclient.materialize.tables[table](target_id=task_ids).live_query(
+                metadata=False,
+                timestamp="now",
+            )
+            anno_to_delete[table] = current_status["id_ref"].tolist()
+            anno_to_add[table] = [
+                {"target_id": task_id, "tag": next_status_map[(table, task_id)]} for task_id in task_ids
+            ]
+        return anno_to_delete, anno_to_add
+
+    def update_cave_tables(
+        self,
+        to_delete: dict,
+        to_add: dict,
+    ):
+        for table, annos in to_delete.items():
+            try:
+                self.caveclient.annotation.delete_annotation(table, annos)
+                logger.info(f"Deleted {len(annos)} annotations from {table}")
+            except:
+                logger.error(f"Failed to delete {len(annos)} annotations from {table}")
+
+        new_ids = {}
+        for table, annos in to_add.items():
+            try:
+                stage = self.caveclient.annotation.stage_annotations(table)
+                for anno in annos:
+                    stage.add(**anno)
+                new_ids[table] = self.caveclient.annotation.upload_staged_annotations(stage)
+                logger.info(f"Added {len(annos)} annotations from {table}")
+            except:
+                logger.error(f"Failed to add {len(annos)} annotations to {table}")
+
+        return new_ids
+
+    def run_update(
+        self,
+        nv_namespace: Optional[str] = None,
+        extra_sieve_filters: Optional[dict] = None,
+        *,
+        dry_run: bool = False,
+    ):
+        """Run all steps to update CAVE tables based on a Neuvue namespace.
+
+        Parameters
+        ----------
+        nv_namespace : Optional[str], optional
+            Name of the namespace in the Nuevue server, by default None
+        extra_sieve_filters : Optional[dict], optional
+            Additional sieve features to describe the tasks in Nuevue, by default None
+        dry_run : bool, optional
+            Only compute annotations to change but do not update CAVE, by default False
+
+        Returns
+        -------
+        new_ids : dict or None
+            Dictionary of CAVE table name to id values for new annotation ids if not dry run, None otherwise.
+        to_delete : dict
+            Dictionary of CAVE table name to list of annotation ids to delete.
+        to_add : dict
+            Dictionary of CAVE table name to list of new annotations to be added.
+        """
+        task_df = self.get_task_data(nv_namespace=nv_namespace, extra_sieve_filters=extra_sieve_filters)
+        to_delete, to_add = self.get_cave_annotations(task_df)
+        if not dry_run:
+            new_ids = self.update_cave_tables(to_delete, to_add)
+        else:
+            new_ids = None
+        return new_ids, to_delete, to_add
