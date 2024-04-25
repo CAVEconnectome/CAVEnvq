@@ -45,7 +45,8 @@ class AnnotationBroadcaster:
         dfs = []
         for ln in anno_layers:
             df_ln = anno_df.query("layer == @ln").reset_index(drop=True).explode("tags")
-            df_ln["tags"] = df_ln["tags"].replace(tags[ln])
+            with pd.option_context("future.no_silent_downcasting", True):
+                df_ln["tag_value"] = df_ln["tags"].replace(tags[ln]).astype(object)
             dfs.append(df_ln)
         anno_df = pd.concat(dfs, ignore_index=True)
         return anno_df
@@ -105,6 +106,7 @@ class AnnotationBroadcaster:
         self,
         state_url: Union[str, int],
         anno_layers: Optional[Union[str, list[str]]] = None,
+        *,
         dry_run=False,
     ):
         """_summary_
@@ -129,11 +131,11 @@ class AnnotationBroadcaster:
         new_anno_ids = {}
         for table_name, annos in anno_list.items():
             if dry_run:
-                logger.info(f"Would upload {len(anno_list)} annotations to {table_name}")
-                new_anno_ids[table_name] = [-1 * x for x in range(len(anno_list))]
+                logger.info(f"DRY RUN: Would upload {len(annos)} annotations to {table_name}")
+                new_anno_ids[table_name] = [-1 - x for x in range(len(annos))]
             else:
                 new_anno_ids[table_name] = self.caveclient.annotation.post_annotation(table_name, annos)
-                logger.info(f"Uploaded {len(anno_list)} annotations to {table_name}")
+                logger.success(f"Uploaded {len(anno_list)} annotations to {table_name}")
         return new_anno_ids
 
 
@@ -157,13 +159,13 @@ def process_row(row, mapping):
             # field mapping for tag values
             tag_values = value.get("limit_to", None)
             if tag_values:
-                if row["tags"] not in tag_values:
+                if row["tag_value"] not in tag_values:
                     return None
-            elif pd.isna(row["tags"]):
+            elif pd.isna(row["tag_value"]):
                 return None
             elif value.get("single_tag", False) and row["num_tags"] > 1:
                 return None
-            anno[key] = row["tags"]
+            anno[key] = row["tag_value"]
         else:
             raise ValueError(f"Unknown annotation type: {value.get('type')}")
     return anno

@@ -8,7 +8,8 @@ from caveclient import CAVEclient
 from loguru import logger
 from neuvueclient import NeuvueQueue
 
-from cavenvq.utils import TaskValidationError, flatten_list, status_table_name
+from cavenvq.broadcaster import AnnotationBroadcaster
+from cavenvq.utils import TaskValidationError, filter_complete_but_unprocessed, flatten_list, status_table_name
 
 DEFAULT_METADATA_COLUMNS = ["task_id", "cave_task_table", "cave_status_table", "next_status", "processed"]
 NV_METADATA_COLUMN_NAME = "metadata"
@@ -39,7 +40,7 @@ class Task:
     seg_id : Optional[int]
         The ID of the segment (default: None).
     priority : Optional[int]
-        The priority of the task (default: None).
+        The priority of the task. Higher values have more priority. (default: None).
     """
 
     states: list
@@ -66,6 +67,8 @@ class Task:
     def __attrs_post_init__(self):
         if self.annotation_kws is None:
             self.annotation_kws = {}
+        if isinstance(self.states, str):
+            self.states = [self.states]
 
 
 @attrs.define
@@ -93,8 +96,6 @@ class TaskList:
         The assignees. Defaults to None.
     cave_status_table : Optional[str], optional
         The CAVE table for tracking the status of tasks. Defaults to None, which uses utils.status_table_name
-    cave_broadcast_table : Optional[str], optional
-        The CAVE table to broadcast finished annotatoins to. Defaults to None.
     cave_broadcast_mapping : Optional[dict], optional
         Rules for broadcasting finished annotations. Defaults to None.
     task_instruction : Optional[dict], optional
@@ -102,7 +103,7 @@ class TaskList:
     representative_point_resolution : Optional[list], optional
         The representative point resolution. Defaults to None.
     annotation_kws : Optional[dict], optional
-        Additional CAVE annotation keywords for new tasks. Defaults to None.
+        Additional CAVE annotation fields values for new tasks. Defaults to None.
     status_field : Optional[str], optional
         The column name for the proofreading status. Defaults to "tag".
     priority : Optional[int], optional
@@ -215,6 +216,10 @@ class TaskList:
         self.validate_tasks()
         if self.annotation_kws is None:
             self.annotation_kws = {}
+        else:
+            # Merge dictionaries, with the individual task winning ties.
+            for task in self.tasks:
+                task.annotation_kws = self.annotation_kws | task.annotation_kws
         if self.cave_status_table is None:
             self.cave_status_table = status_table_name(self.cave_task_table)
 
@@ -222,7 +227,7 @@ class TaskList:
 class TaskPublisher:
     def __init__(
         self,
-        tasklist: TaskList,
+        # tasklist: TaskList,
         caveclient: CAVEclient,
         nv_client: NeuvueQueue,
     ):
@@ -230,99 +235,99 @@ class TaskPublisher:
 
         Parameters
         ----------
-        tasklist : TaskList
-            Configured TaskList object from above.
         caveclient : CAVEclient
             Initialized CAVEclient object.
         nv_client : NeuvueQueue
             Initialized NeuvueQueue object.
         """
-        if tasklist.annotation_kws is not None:
-            for task in tasklist.tasks:
-                # Merge dictionaries, with the individual task winning ties.
-                task.annotation_kws = tasklist.annotation_kws | task.annotation_kws
-        self.tasklist = tasklist
         self.caveclient = caveclient
         self.nv_client = nv_client
 
-    def _validate_cave_tables(self):
+    def _validate_cave_tables(self, tasklist):
         table_list = self.caveclient.annotation.get_tables()
-        if self.tasklist.cave_task_table not in table_list:
-            msg = f'Table "{self.tasklist.cave_task_table}" not in CAVE annotation tables'
+        if tasklist.cave_task_table not in table_list:
+            msg = f'Table "{tasklist.cave_task_table}" not in CAVE annotation tables'
             raise TaskValidationError(msg)
-        if self.tasklist.cave_status_table not in table_list:
-            msg = f'Table "{self.tasklist.cave_status_table}" not in CAVE annotation tables'
+        if tasklist.cave_status_table not in table_list:
+            msg = f'Table "{tasklist.cave_status_table}" not in CAVE annotation tables'
             raise TaskValidationError(msg)
         pass
 
-    def publish_tasks(self):
+    def publish_tasks(self, tasklist):
         # Uploads the initial proofreading annotations and status annotations associated with them.
         # Also, populates a task id in each task.
-        main_annos, status_annos = self._cave_annotations()
+        return self._publish_tasks(tasklist, dry_run=False)
 
-        # Publish the various states to a neuvue queue task
-        nv_data = self._post_neuvue_tasks()
+    def dry_run(self, tasklist):
+        # Return annotation dictionaries and neuvue task dictionaries without posting.
+        (main_annos, status_annos), nv_data = self._publish_tasks(tasklist, dry_run=True)
+        self._reset_tasks(tasklist)
         return (main_annos, status_annos), nv_data
 
-    def dry_run(self):
-        # Return annotation dictionaries and neuvue task dictionaries without posting.
-        main_annos, status_annos = self._cave_annotations(dry_run=True)
-        nv_tasks = self._post_neuvue_tasks(dry_run=True)
-        self._reset_tasks()
-        return (main_annos, status_annos), nv_tasks
+    def _publish_tasks(self, tasklist, dry_run):
+        # Internal function to publish tasks to CAVE and Neuvue, used to make sure dry_run and publish_tasks use the same code.
+        self._validate_cave_tables(tasklist)
+        main_annos, status_annos = self._cave_annotations(tasklist, dry_run=dry_run)
+        # Publish the various states to a neuvue queue task
+        nv_data = self._post_neuvue_tasks(tasklist, dry_run=dry_run)
+        return (main_annos, status_annos), nv_data
 
-    def _reset_tasks(self):
-        for task in self.tasklist.tasks:
+    def _reset_tasks(self, tasklist):
+        for task in tasklist.tasks:
             if task.id < 0:
                 task.set_id(None)
 
-    def _cave_annotations(self, *, dry_run=False):
-        stage = self._generate_initial_task_annotations()
-        self._cave_task_annotations(stage, dry_run=dry_run)
-        status_stage = self._cave_status_annotations(dry_run=dry_run)
+    def _cave_annotations(self, tasklist, *, dry_run=False):
+        stage = self._generate_initial_task_annotations(tasklist)
+        self._cave_task_annotations(stage, tasklist, dry_run=dry_run)
+        status_stage = self._cave_status_annotations(tasklist, dry_run=dry_run)
         return stage.annotation_list, status_stage.annotation_list
 
-    def _generate_initial_task_annotations(self):
+    def _generate_initial_task_annotations(self, tasklist):
         # Uploads annotationss and stores the annotations id in the task
         stage = self.caveclient.annotation.stage_annotations(
-            self.tasklist.cave_task_table, annotation_resolution=self.tasklist.representative_point_resolution
+            tasklist.cave_task_table, annotation_resolution=tasklist.representative_point_resolution
         )
-        for task in self.tasklist.tasks:
+        for task in tasklist.tasks:
             stage.add(**task.as_new_annotation)
         return stage
 
-    def _cave_task_annotations(self, stage, *, dry_run=False):
+    def _cave_task_annotations(self, stage, tasklist, *, dry_run=False):
         # Posts all annotations and stores the annotation id in
         if dry_run is False:
             anno_ids = self.caveclient.annotation.upload_staged_annotations(stage)
-            for task, anno_id in zip(self.tasklist.tasks, anno_ids):
+            for task, anno_id in zip(tasklist.tasks, anno_ids):
                 task.set_id(anno_id)
-            logger.info(f"Uploaded {len(anno_ids)} task annotations to {self.tasklist.cave_task_table}")
+            logger.success(f"Uploaded {len(anno_ids)} task annotations to {tasklist.cave_task_table}")
         else:
-            anno_ids = range(len(self.tasklist.tasks))
-            for task, anno_id in zip(self.tasklist.tasks, anno_ids):
+            anno_ids = range(len(tasklist.tasks))
+            for task, anno_id in zip(tasklist.tasks, anno_ids):
                 if task.id is None:
                     # Start at negative one for dry runs to avoid confusion with real ids.
                     task.set_id(-1 - anno_id)
+            logger.info(f"DRY RUN: Would have uploaded {len(anno_ids)} task annotations to {tasklist.cave_task_table}")
 
-    def _cave_status_annotations(self, *, dry_run=False):
-        stage = self.caveclient.annotation.stage_annotations(self.tasklist.cave_status_table)
-        for task in self.tasklist.tasks:
-            stage.add(**self.tasklist.initial_status_annotation(task.id))
+    def _cave_status_annotations(self, tasklist, *, dry_run=False):
+        stage = self.caveclient.annotation.stage_annotations(tasklist.cave_status_table)
+        for task in tasklist.tasks:
+            stage.add(**tasklist.initial_status_annotation(task.id))
         if dry_run is False:
             self.caveclient.annotation.upload_staged_annotations(stage)
+            logger.success(f"Uploaded {len(stage.annotation_list)} status annotations to {tasklist.cave_status_table}")
+        else:
             logger.info(
-                f"Uploaded {len(stage.annotation_list)} status annotations to {self.tasklist.cave_status_table}"
+                f"DRY RUN: Would have uploaded {len(stage.annotation_list)} status annotations to {tasklist.cave_status_table}"
             )
         return stage
 
-    def _post_neuvue_tasks(self, *, dry_run=False):
-        nv_tasks = self.tasklist.neuvue_tasks()
+    def _post_neuvue_tasks(self, tasklist, *, dry_run=False):
+        nv_tasks = tasklist.neuvue_tasks()
         self._broadcast_neuvue_tasks(nv_tasks, dry_run=dry_run)
         return nv_tasks
 
     def _broadcast_neuvue_tasks(self, nv_tasks, *, dry_run=False):
         if dry_run is True:
+            logger.info(f"DRY RUN: Would have posted {len(nv_tasks)} tasks to Neuvue")
             return
         with ThreadPoolExecutor(max_workers=10) as exe:
             resp = []
@@ -333,7 +338,7 @@ class TaskPublisher:
                         **task,
                     )
                 )
-            logger.info(f"Posted {len(nv_tasks)} tasks to Neuvue")
+            logger.success(f"Posted {len(nv_tasks)} tasks to Neuvue")
         return [r.result() for r in resp]
 
 
@@ -397,8 +402,7 @@ class QueueReader:
         task_df.dropna(subset=self.metadata_columns, inplace=True)
         task_df[task_id_column] = task_df[task_id_column].astype(int)
 
-        task_df = self._identify_finished_tasks(task_df)
-        return task_df
+        return self._identify_finished_tasks(task_df)
 
     def _identify_finished_tasks(
         self,
@@ -413,7 +417,7 @@ class QueueReader:
         )
         return task_df
 
-    def get_cave_annotations(
+    def _make_cave_annotations(
         self,
         task_df: pd.DataFrame,
         task_id_column: str = "task_id",
@@ -437,7 +441,7 @@ class QueueReader:
         to_add : dict
             Dictionary of CAVE table name to list of new annotations to be added.
         """
-        task_df_complete = task_df.query(f"{task_is_complete_column} == True")
+        task_df_complete = filter_complete_but_unprocessed(task_df, is_complete_col=task_is_complete_column)
         task_df_single = task_df_complete.drop_duplicates(subset=task_id_column)
 
         # Get the task tables and id map as a dictionary
@@ -446,7 +450,7 @@ class QueueReader:
         )
         next_status_map = (
             task_df_single.groupby(["cave_status_table", task_id_column])["next_status"]
-            .agg(lambda x: list(x)[0])
+            .agg(lambda x: next(iter(x)))
             .to_dict()
         )
 
@@ -463,30 +467,76 @@ class QueueReader:
             ]
         return anno_to_delete, anno_to_add
 
-    def update_cave_tables(
+    def _update_cave_tables(
         self,
         to_delete: dict,
         to_add: dict,
+        dry_run: bool = False,  # noqa: FBT002, FBT001
     ):
         for table, annos in to_delete.items():
             try:
-                self.caveclient.annotation.delete_annotation(table, annos)
-                logger.info(f"Deleted {len(annos)} annotations from {table}")
-            except:
+                if dry_run is False:
+                    self.caveclient.annotation.delete_annotation(table, annos)
+                    logger.success(f"Deleted {len(annos)} annotations from {table}")
+                else:
+                    logger.info(f"DRY RUN: Would have deleted {len(annos)} annotations from {table}")
+            except:  # noqa: E722
                 logger.error(f"Failed to delete {len(annos)} annotations from {table}")
-
         new_ids = {}
         for table, annos in to_add.items():
             try:
                 stage = self.caveclient.annotation.stage_annotations(table)
                 for anno in annos:
                     stage.add(**anno)
-                new_ids[table] = self.caveclient.annotation.upload_staged_annotations(stage)
-                logger.info(f"Added {len(annos)} annotations from {table}")
-            except:
+                if dry_run is False:
+                    new_ids[table] = self.caveclient.annotation.upload_staged_annotations(stage)
+                    logger.success(f"Added {len(annos)} annotations from {table}")
+                else:
+                    new_ids[table] = [-1 - x for x in range(len(annos))]
+                    logger.info(f"DRY RUN: Would have added {len(annos)} annotations to {table}")
+            except:  # noqa: E722
                 logger.error(f"Failed to add {len(annos)} annotations to {table}")
-
         return new_ids
+
+    def broadcast_secondary_annotations(
+        self,
+        task_df: pd.DataFrame,
+        *,
+        dry_run: bool = False,
+    ):
+        """Generate and (optionally) post secondary annotations generated from finished neuroglancer states"""
+        task_df_broadcast = filter_complete_but_unprocessed(task_df)
+        for task_idx, task_row in task_df_broadcast.iterrows():
+            meta = task_row[NV_METADATA_COLUMN_NAME]
+            broadcast_mapping = meta.get("cave_broadcast_mapping")
+            ng_state = task_row["ng_state"]
+            if broadcast_mapping is None:
+                continue
+            else:
+                try:
+                    abc = AnnotationBroadcaster(
+                        self.caveclient,
+                        broadcast_mapping=broadcast_mapping,
+                    )
+                    abc.broadcast_annotations(ng_state, dry_run=dry_run)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast secondary annotations for Neuvue task {task_idx}: {e}")
+
+    def _set_processed(self, task_df, dry_run=False):  # noqa: FBT002
+        task_df_unprocessed = filter_complete_but_unprocessed(task_df)
+        if dry_run:
+            logger.info(f"DRY RUN: Would have marked {len(task_df_unprocessed)} tasks as processed")
+        else:
+            success_idx = []
+            for task_idx in task_df_unprocessed.index:
+                try:
+                    meta = task_df_unprocessed.loc[task_idx][NV_METADATA_COLUMN_NAME]
+                    meta["processed"] = True
+                    self.nv_client.patch_task_metadata(task_idx, metadata=meta)
+                    success_idx.append(task_idx)
+                except Exception as e:
+                    logger.error(f"Failed to mark task {task_idx} as processed: {e}")
+            logger.success(f"Marked {len(success_idx)} tasks as processed")
 
     def run_update(
         self,
@@ -516,9 +566,9 @@ class QueueReader:
             Dictionary of CAVE table name to list of new annotations to be added.
         """
         task_df = self.get_task_data(nv_namespace=nv_namespace, extra_sieve_filters=extra_sieve_filters)
-        to_delete, to_add = self.get_cave_annotations(task_df)
-        if not dry_run:
-            new_ids = self.update_cave_tables(to_delete, to_add)
-        else:
-            new_ids = None
+
+        to_delete, to_add = self._make_cave_annotations(task_df)
+        new_ids = self._update_cave_tables(to_delete, to_add, dry_run=dry_run)
+        self.broadcast_secondary_annotations(task_df, dry_run=dry_run)
+        self._set_processed(task_df, dry_run=dry_run)
         return new_ids, to_delete, to_add
