@@ -1,5 +1,5 @@
 from itertools import chain
-
+from pathlib import Path
 import tomlkit
 
 
@@ -52,8 +52,10 @@ def make_config_for_tasklist(
 
 
 def parse_config(
-    config_path,
+    config_path: str,
 ):
+    if Path(config_path).suffix != ".toml":
+        config_path = Path()
     with open(config_path) as f:
         settings = tomlkit.parse(f.read())
     return settings

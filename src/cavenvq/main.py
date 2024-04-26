@@ -422,7 +422,7 @@ class QueueReader:
                     server_address=settings["cave"]["server_address"],
                 )
                 nv_client = NeuvueQueue(
-                    nuevue_url=settings["neuvue"]["url"],
+                    url=settings["neuvue"]["url"],
                 )
                 nv_namespace = settings["neuvue"]["namespace"]
                 extra_sieve_filters = settings["neuvue"].get("extra_sieve", {})
