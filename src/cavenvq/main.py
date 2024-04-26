@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Optional, Union
 
 import attrs
@@ -9,7 +10,14 @@ from loguru import logger
 from neuvueclient import NeuvueQueue
 
 from cavenvq.broadcaster import AnnotationBroadcaster
-from cavenvq.utils import TaskValidationError, filter_complete_but_unprocessed, flatten_list, status_table_name
+from cavenvq.utils import (
+    TaskValidationError,
+    filter_complete_but_unprocessed,
+    flatten_list,
+    make_config_for_tasklist,
+    parse_config,
+    status_table_name,
+)
 
 DEFAULT_METADATA_COLUMNS = ["task_id", "cave_task_table", "cave_status_table", "next_status", "processed"]
 NV_METADATA_COLUMN_NAME = "metadata"
@@ -227,7 +235,6 @@ class TaskList:
 class TaskPublisher:
     def __init__(
         self,
-        # tasklist: TaskList,
         caveclient: CAVEclient,
         nv_client: NeuvueQueue,
     ):
@@ -341,30 +348,89 @@ class TaskPublisher:
             logger.success(f"Posted {len(nv_tasks)} tasks to Neuvue")
         return [r.result() for r in resp]
 
+    def save_task_config(
+        self,
+        tasklist: TaskList,
+        filepath: Optional[str] = None,
+        extra_sieve_filters: Optional[dict] = None,
+        *,
+        return_as_string: bool = False,
+    ):
+        "Save the task list configuration to a file."
+        config_string = make_config_for_tasklist(
+            self.caveclient,
+            self.nv_client,
+            tasklist,
+            extra_sieve_filters=extra_sieve_filters,
+        )
+
+        if return_as_string:
+            return config_string
+        else:
+            if filepath is None:
+                msg = "Filepath must be provided if return_as_string is False"
+                raise ValueError(msg)
+            filepath = Path(filepath)
+            if filepath.suffix == ".toml":
+                filepath = filepath.with_suffix("")
+            elif filepath.suffix != "":
+                msg = "Filepath should either have no extension or end in .toml"
+                raise ValueError(msg)
+            else:
+                filepath = filepath.with_suffix(".toml")
+
+            with open(filepath, "w") as f:
+                f.write(config_string)
+
 
 class QueueReader:
     metadata_columns = DEFAULT_METADATA_COLUMNS
 
     def __init__(
         self,
-        caveclient: CAVEclient,
-        nv_client: NeuvueQueue,
+        caveclient: Optional[CAVEclient] = None,
+        nv_client: Optional[NeuvueQueue] = None,
         nv_namespace: Optional[str] = None,
+        extra_sieve_filters: Optional[dict] = None,
+        config_file: Optional[str] = None,
     ):
         """Process tasks from Neuvue and update CAVE accordingly
 
         Parameters
         ----------
-        caveclient : CAVEclient
-            Initialized CAVEclient object.
-        nv_client : NeuvueQueue
-            Initialized NeuvueQueue object.
-        nv_namespace : str
-            Neuvue namespace.
+        caveclient : CAVEclient, optional
+            Initialized CAVEclient object. If not provided, a config file must be set.
+        nv_client : NeuvueQueue, optional.
+            Initialized NeuvueQueue object. If not provided, a config file must be set.
+        nv_namespace : str, optional
+            Neuvue namespace. If not provided, a config file must be set.
+        extra_sieve_filters : dict, optional
+            Additional sieve filters to use for task checking, by default None
+        config_file : str, optional
+            Path to a toml configuration file like that produced by `TaskPublisher.save_task_config`, by default None.
         """
+        if extra_sieve_filters is None:
+            extra_sieve_filters = {}
+        if caveclient is None or nv_client is None:
+            if config_file is None:
+                msg = "Config file must be provided if caveclient and nv_client are not."
+                raise ValueError(msg)
+            else:
+                settings = parse_config(config_file)
+                caveclient = CAVEclient(
+                    datastack_name=settings["cave"]["datastack_name"],
+                    server_address=settings["cave"]["server_address"],
+                )
+                nv_client = NeuvueQueue(
+                    nuevue_url=settings["neuvue"]["url"],
+                )
+                nv_namespace = settings["neuvue"]["namespace"]
+                extra_sieve_filters = settings["neuvue"].get("extra_sieve", {})
+
         self.nv_namespace = nv_namespace
         self.caveclient = caveclient
         self.nv_client = nv_client
+        self._extra_sieve_filters = extra_sieve_filters
 
     def get_task_data(
         self,
@@ -380,6 +446,8 @@ class QueueReader:
             Name of the neuvue namespace to check, by default None
         extra_sieve_filters : Optional[dict]
             Additional sieve filters to use for task checking, by default None
+        task_id_column : str, optional
+            Name of the column holding the task id, by default "task_id"
 
         Returns
         -------
@@ -391,7 +459,7 @@ class QueueReader:
             msg = "QueueReader needs to read all tasks, not just those with a specific status"
             raise ValueError(msg)
 
-        sieve.update(extra_sieve_filters or {})
+        sieve.update(self._extra_sieve_filters | extra_sieve_filters)
 
         task_df = self.nv_client.get_tasks(
             sieve=sieve,
