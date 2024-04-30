@@ -32,6 +32,7 @@ theme:
     - content.code.copy
 nav:
 - About: index.md
+- Example: example.md
 - Function Reference:
   - reference/reference.md
 markdown_extensions:
