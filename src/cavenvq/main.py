@@ -6,6 +6,7 @@ import attrs
 import numpy as np
 import pandas as pd
 from caveclient import CAVEclient
+from caveclient.tools import table_manager
 from loguru import logger
 from neuvueclient import NeuvueQueue
 
@@ -33,9 +34,9 @@ class Task:
     ----------
     states : list
         A list of neuroglancer states.
-    representative_point : list
+    representative_point : Optional[list]
         A single point in 3D space that represents the task.
-    instructions : str
+    instructions : Optional[str]
         The instructions for the task.
     id : Optional[int]
         The ID of the task (default: None).
@@ -49,27 +50,36 @@ class Task:
         The ID of the segment (default: None).
     priority : Optional[int]
         The priority of the task. Higher values have more priority. (default: None).
+    existing_task : Optional[bool]
+        Whether the task is based on a new or existing CAVE task (default: False).
     """
 
     states: list
-    representative_point: list
+    representative_point: Optional[list] = None
     instructions: Optional[str] = None
     id: Optional[int] = None
     annotation_kws: Optional[dict] = None
-    point_field: str = "pt_position"
+    point_field: Optional[str] = "pt_position"
     assignees: Optional[Union[str, list[str]]] = None
     seg_id: Optional[int] = None
     priority: Optional[int] = None
+    existing_task: Optional[bool] = False
 
     @property
     def as_new_annotation(self):
-        anno = {
-            self.point_field: self.representative_point,
-        }
+        if self.point_field is not None and self.existing_task is False:
+            anno = {
+                self.point_field: self.representative_point,
+            }
+        else:
+            anno = {}
         anno.update(self.annotation_kws)
         return anno
 
     def set_id(self, new_id):
+        if self.existing_task is True:
+            msg = "Cannot set ID for existing task"
+            raise TaskValidationError(msg)
         self.id = new_id
 
     def __attrs_post_init__(self):
@@ -127,7 +137,6 @@ class TaskList:
     initial_status: Optional[str] = "given"
     assignees: Optional[str] = None
     cave_status_table: Optional[str] = None
-    cave_broadcast_table: Optional[str] = None
     cave_broadcast_mapping: Optional[dict] = None
     task_instruction: Optional[str] = None
     representative_point_resolution: Optional[list] = None
@@ -149,7 +158,6 @@ class TaskList:
             "task_id": task.id,
             "cave_task_table": self.cave_task_table,
             "cave_status_table": self.cave_status_table,
-            "cave_broadcast_table": self.cave_broadcast_table,
             "cave_broadcast_mapping": self.cave_broadcast_mapping,
             "initial_status": self.initial_status,
             "next_status": self.next_status,
@@ -207,6 +215,25 @@ class TaskList:
             raise TaskValidationError(msg)
         for task in self.tasks:
             self.task_assignee(task)
+        if self.cave_broadcast_mapping is not None:
+            for tn in self.cave_broadcast_mapping:
+                if tn not in self.materialize.tables:
+                    msg = f"Table {tn} not in CAVE tables"
+                    raise TaskValidationError(msg)
+                else:
+                    fields = table_manager.get_table_info(
+                        tn,
+                        self.caveclient.materialize.tables._table_metadata[tn],
+                        self.caveclient,
+                        merge_schema=False,
+                    )[3]
+                    fields.pop("id")
+                    req_fields = list(fields.keys())
+                    for ln in self.cave_broadcast_mapping[tn]:
+                        sup_fields = list(self.cave_broadcast_mapping[tn][ln].keys())
+                    if not sorted(req_fields) == sorted(sup_fields):
+                        msg = f"Fields in broadcast mapping for {tn} and layer {ln} do not match required table fields"
+                        raise TaskValidationError(msg)
 
     def task_assignee(self, task):
         "Set assignees for task, allowing for task-specific or global assignees."
@@ -296,7 +323,9 @@ class TaskPublisher:
             tasklist.cave_task_table, annotation_resolution=tasklist.representative_point_resolution
         )
         for task in tasklist.tasks:
-            stage.add(**task.as_new_annotation)
+            # Do not re-upload existing tasks
+            if task.existing_task is False:
+                stage.add(**task.as_new_annotation)
         return stage
 
     def _cave_task_annotations(self, stage, tasklist, *, dry_run=False):
@@ -388,49 +417,60 @@ class QueueReader:
 
     def __init__(
         self,
-        caveclient: Optional[CAVEclient] = None,
-        nv_client: Optional[NeuvueQueue] = None,
-        nv_namespace: Optional[str] = None,
+        caveclient: CAVEclient,
+        nv_client: NeuvueQueue,
+        nv_namespace: str,
         extra_sieve_filters: Optional[dict] = None,
-        config_file: Optional[str] = None,
     ):
         """Process tasks from Neuvue and update CAVE accordingly
 
         Parameters
         ----------
-        caveclient : CAVEclient, optional
-            Initialized CAVEclient object. If not provided, a config file must be set.
-        nv_client : NeuvueQueue, optional.
-            Initialized NeuvueQueue object. If not provided, a config file must be set.
-        nv_namespace : str, optional
-            Neuvue namespace. If not provided, a config file must be set.
+        caveclient : CAVEclient
+            Initialized CAVEclient object.
+        nv_client : NeuvueQueue
+            Initialized NeuvueQueue object.
+        nv_namespace : str
+            Neuvue namespace
         extra_sieve_filters : dict, optional
             Additional sieve filters to use for task checking, by default None
-        config_file : str, optional
-            Path to a toml configuration file like that produced by `TaskPublisher.save_task_config`, by default None.
         """
         if extra_sieve_filters is None:
             extra_sieve_filters = {}
-        if caveclient is None or nv_client is None:
-            if config_file is None:
-                msg = "Config file must be provided if caveclient and nv_client are not."
-                raise ValueError(msg)
-            else:
-                settings = parse_config(config_file)
-                caveclient = CAVEclient(
-                    datastack_name=settings["cave"]["datastack_name"],
-                    server_address=settings["cave"]["server_address"],
-                )
-                nv_client = NeuvueQueue(
-                    url=settings["neuvue"]["url"],
-                )
-                nv_namespace = settings["neuvue"]["namespace"]
-                extra_sieve_filters = settings["neuvue"].get("extra_sieve", {})
-
         self.nv_namespace = nv_namespace
         self.caveclient = caveclient
         self.nv_client = nv_client
         self._extra_sieve_filters = extra_sieve_filters
+
+    @classmethod
+    def from_config(cls, config_file: str):
+        """Read QueueReader from configuration file
+
+        Parameters
+        ----------
+        config_file : str
+            Path to a toml configuration file like that produced by `TaskPublisher.save_task_config`, by default None.
+
+        Returns
+        -------
+        QueueReader
+        """
+        settings = parse_config(config_file)
+        caveclient = CAVEclient(
+            datastack_name=settings["cave"]["datastack_name"],
+            server_address=settings["cave"]["server_address"],
+        )
+        nv_client = NeuvueQueue(
+            url=settings["neuvue"]["url"],
+        )
+        nv_namespace = settings["neuvue"]["namespace"]
+        extra_sieve_filters = settings["neuvue"].get("extra_sieve", {})
+        return cls(
+            caveclient=caveclient,
+            nv_client=nv_client,
+            nv_namespace=nv_namespace,
+            extra_sieve_filters=extra_sieve_filters,
+        )
 
     def get_task_data(
         self,
@@ -454,6 +494,9 @@ class QueueReader:
         pd.DataFrame
             Task description dataframe.
         """
+        if extra_sieve_filters is None:
+            extra_sieve_filters = {}
+
         sieve = {"namespace": nv_namespace or self.nv_namespace}
         if "status" in sieve:
             msg = "QueueReader needs to read all tasks, not just those with a specific status"
@@ -600,7 +643,7 @@ class QueueReader:
                 try:
                     meta = task_df_unprocessed.loc[task_idx][NV_METADATA_COLUMN_NAME]
                     meta["processed"] = True
-                    self.nv_client.patch_task_metadata(task_idx, metadata=meta)
+                    self.nv_client.patch_task(task_idx, metadata=meta)
                     success_idx.append(task_idx)
                 except Exception as e:
                     logger.error(f"Failed to mark task {task_idx} as processed: {e}")
@@ -633,6 +676,8 @@ class QueueReader:
         to_add : dict
             Dictionary of CAVE table name to list of new annotations to be added.
         """
+        if extra_sieve_filters is None:
+            extra_sieve_filters = {}
         task_df = self.get_task_data(nv_namespace=nv_namespace, extra_sieve_filters=extra_sieve_filters)
 
         to_delete, to_add = self._make_cave_annotations(task_df)

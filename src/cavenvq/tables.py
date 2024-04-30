@@ -1,8 +1,15 @@
+from caveclient import CAVEclient
+
 from cavenvq.utils import status_table_name
 
 
 def create_task_tables(
-    table_name, description, voxel_resolution, cv_client, schema="bound_tag", reference_suffix="status"
+    table_name: str,
+    description: str,
+    voxel_resolution: list,
+    cv_client: CAVEclient,
+    schema="bound_tag",
+    reference_suffix="status",
 ):
     "Convenience function to generate a proofreading task table and its status reference table."
 
