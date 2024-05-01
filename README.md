@@ -12,7 +12,7 @@ The package is currently not available on pypi. Please install through github:
 pip install git+https://github.com/CAVEconnectome/CAVEnvq.git
 ```
 
-[Initial documentation can be found here](https://alleninstitute.github.io/CAVE-NeuvueQueue/)
+[[Initial documentation can be found here](https://caveconnectome.github.io/CAVEnvq/)
 
 ## License
 
