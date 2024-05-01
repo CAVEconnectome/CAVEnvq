@@ -215,25 +215,6 @@ class TaskList:
             raise TaskValidationError(msg)
         for task in self.tasks:
             self.task_assignee(task)
-        if self.cave_broadcast_mapping is not None:
-            for tn in self.cave_broadcast_mapping:
-                if tn not in self.materialize.tables:
-                    msg = f"Table {tn} not in CAVE tables"
-                    raise TaskValidationError(msg)
-                else:
-                    fields = table_manager.get_table_info(
-                        tn,
-                        self.caveclient.materialize.tables._table_metadata[tn],
-                        self.caveclient,
-                        merge_schema=False,
-                    )[3]
-                    fields.pop("id")
-                    req_fields = list(fields.keys())
-                    for ln in self.cave_broadcast_mapping[tn]:
-                        sup_fields = list(self.cave_broadcast_mapping[tn][ln].keys())
-                    if not sorted(req_fields) == sorted(sup_fields):
-                        msg = f"Fields in broadcast mapping for {tn} and layer {ln} do not match required table fields"
-                        raise TaskValidationError(msg)
 
     def task_assignee(self, task):
         "Set assignees for task, allowing for task-specific or global assignees."
@@ -285,6 +266,25 @@ class TaskPublisher:
         if tasklist.cave_status_table not in table_list:
             msg = f'Table "{tasklist.cave_status_table}" not in CAVE annotation tables'
             raise TaskValidationError(msg)
+        # if tasklist.cave_broadcast_mapping is not None:
+        #     for tn in tasklist.cave_broadcast_mapping:
+        #         if tn not in self.caveclient.annotation.get_tables():
+        #             msg = f"Table {tn} not in CAVE tables"
+        #             raise TaskValidationError(msg)
+        #         else:
+        #             fields = table_manager.get_table_info(
+        #                 tn,
+        #                 self.caveclient.materialize.tables._table_metadata[tn],
+        #                 self.caveclient,
+        #                 merge_schema=False,
+        #             )[3]  # Get required fields for the schema
+        #             fields.pop("id")
+        #             req_fields = list(fields.keys())
+        #             for ln in tasklist.cave_broadcast_mapping[tn]:
+        #                 sup_fields = list(tasklist.cave_broadcast_mapping[tn][ln].keys())
+        #             if not sorted(req_fields) == sorted(sup_fields):
+        #                 msg = f"Fields in broadcast mapping for {tn} and layer {ln} do not match required table fields"
+        #                 raise TaskValidationError(msg)
         pass
 
     def publish_tasks(self, tasklist):
@@ -400,13 +400,11 @@ class TaskPublisher:
                 msg = "Filepath must be provided if return_as_string is False"
                 raise ValueError(msg)
             filepath = Path(filepath)
-            if filepath.suffix == ".toml":
-                filepath = filepath.with_suffix("")
-            elif filepath.suffix != "":
+            if filepath.suffix == "":
+                filepath = filepath.with_suffix(".toml")
+            elif filepath.suffix != ".toml":
                 msg = "Filepath should either have no extension or end in .toml"
                 raise ValueError(msg)
-            else:
-                filepath = filepath.with_suffix(".toml")
 
             with open(filepath, "w") as f:
                 f.write(config_string)
@@ -564,13 +562,20 @@ class QueueReader:
             .agg(lambda x: next(iter(x)))
             .to_dict()
         )
+        ref_table_map = (
+            task_df_single.groupby("cave_status_table")["cave_task_table"].agg(lambda x: next(iter(x))).to_dict()
+        )
 
         anno_to_delete = {}
         anno_to_add = {}
         for table, task_ids in table_and_id_map.items():
-            current_status = self.caveclient.materialize.tables[table](target_id=task_ids).live_query(
+            current_status = self.caveclient.materialize.live_live_query(
+                table=table,
+                filter_in_dict={ref_table_map[table]: {"id": task_ids}},
+                joins=[[table, "target_id", ref_table_map[table], "id"]],
                 metadata=False,
                 timestamp="now",
+                suffixes={table: "_ref", ref_table_map[table]: ""},
             )
             anno_to_delete[table] = current_status["id_ref"].tolist()
             anno_to_add[table] = [

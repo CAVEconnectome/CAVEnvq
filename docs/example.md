@@ -26,7 +26,7 @@ caveclient = CAVEclient(datastack)
 
 # Set up CAVE task table
 task_table = "test_synapse_target_proofreading"
-cavenvq.create_task_tables(
+cavenvq.tables.create_task_tables(
     table_name = task_table,
     description = "Table to test cavenvq for tracking proofreading of synapse targets. By Casey Schneider-Mizell",
     voxel_resolution = [4,4,40],
@@ -58,9 +58,6 @@ Note that the links we want are directly to the JSON, and do not include the neu
 ```python
 from nglui import statebuilder
 
-datastack = 'minnie65_phase3_v1'
-caveclient = CAVEclient(datastack)
-
 cell_df = caveclient.materialize.tables.allen_column_mtypes_v2(classification_system='inhibitory').query()
 
 # Get three random cells with cell type labeled "DTC"
@@ -69,6 +66,8 @@ root_ids = cell_df.query('cell_type=="DTC"').sample(3)['pt_root_id'].values
 # Make a statebuilder for each synapse state we will give to proofreaders
 TAGS = ['excitatory', 'inhibitory', 'unsure', 'error']
 img, seg = statebuilder.from_client(caveclient)
+seg.add_selection_map(selected_ids_column='pre_pt_root_id')
+
 anno = statebuilder.AnnotationLayerConfig(
     name='synapses',
     mapping_rules=statebuilder.PointMapper(point_column='post_pt_position', linked_segmentation_column='post_pt_root_id'),
@@ -89,7 +88,6 @@ for rid in root_ids:
     state_urls.append(
         caveclient.state.build_neuroglancer_url(state_id).split('=')[-1]
     ) # Carve off direct link to JSON file
-)
 ```
 
 The resulting state urls will be something like:
@@ -197,7 +195,7 @@ Alternatively, we can just load the config file we saved earlier.
 
 ```python
 import cavenvq
-qr = cavenvq.QueueReader.from_task_config('synapse_task_config.toml')
+qr = cavenvq.QueueReader.from_config('synapse_task_config.toml')
 ```
 
 And then to check the status of tasks and update the CAVE tables:

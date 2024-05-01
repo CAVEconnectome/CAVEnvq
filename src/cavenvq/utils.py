@@ -43,7 +43,7 @@ def make_config_for_tasklist(
     config.add("cave", cave_config)
 
     nv_config = tomlkit.table()
-    nv_config.add("url", nv_client.url)
+    nv_config.add("url", nv_client.url())
     nv_config.add("namespace", tasklist.namespace)
     nv_config.add("extra_sieve", extra_sieve_filters)
     config.add("neuvue", nv_config)
