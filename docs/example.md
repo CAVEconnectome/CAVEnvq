@@ -169,6 +169,7 @@ td.save_task_config(tasklist, 'synapse_task_config.toml')
 
 At this point, the assigned proofreaders can go to the Neuvue web interface and start proofreading.
 We will now want to check the status of tasks and update the CAVE tables with the results when they are finished.
+Our job is now very easy and it should be automated if everything goes well.
 
 The verbose version of this would take all of the parameters we set above.
 
@@ -203,6 +204,15 @@ And then to check the status of tasks and update the CAVE tables:
 ```python
 qr.run_update()
 # To see what would happen without actually updating the tables, we can run `qr.run_update(dry_run=True)` instead
+```
+
+Alternatively, a command line interface can do the same thing if you specify a config file.
+Note that you will have to make sure that any computer you are running this on has similar CAVE and Neuvue permissions set up as you did when the tasks were created.
+In your shell, run the `update_nvq.py` script with the config file as an argument.
+Dry run mode is an optional argument `-d` or `--dry-run`.
+
+```bash
+python update_nvqueue.py -c synapse_task_config.toml
 ```
 
 This will update anything in the namespace, not only those cells in the TaskList we had made.
