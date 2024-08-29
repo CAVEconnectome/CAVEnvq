@@ -166,6 +166,11 @@ def process_row(row, mapping):
             elif value.get("single_tag", False) and row["num_tags"] > 1:
                 return None
             anno[key] = row["tag_value"]
+        elif value.get("type") == "reference_target":
+            # Reference target ids expected to be in the description.
+            # The key in this case should be "target_id"
+            anno[key] = int(row["description"])
         else:
-            raise ValueError(f"Unknown annotation type: {value.get('type')}")
+            msg = f"Unknown annotation type: {value.get('type')}"
+            raise ValueError(msg)
     return anno

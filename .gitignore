@@ -33,3 +33,5 @@ ENV/
 Thumbs.db
 # Temporary notebook files
 *.ipynb_checkpoints/
+
+site/
