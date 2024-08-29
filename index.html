@@ -1,0 +1,816 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://caveconnectome.github.io/CAVEnvq/">
+      
+      
+      
+        <link rel="next" href="example/">
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.33">
+    
+    
+      
+        <title>CAVE-nvq</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Bitter:300,300i,400,400i,700,700i%7CInconsolata:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Bitter";--md-code-font:"Inconsolata"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cave-neuvuequeue-integration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="CAVE-nvq" class="md-header__button md-logo" aria-label="CAVE-nvq" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            CAVE-nvq
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              About
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/CAVEconnectome/CAVEnvq/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CAVEconnectome/CAVEnvq
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="." class="md-tabs__link">
+        
+  
+    
+  
+  About
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="example/" class="md-tabs__link">
+        
+  
+    
+  
+  Example
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="reference/reference/" class="md-tabs__link">
+          
+  
+    
+  
+  Function Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="CAVE-nvq" class="md-nav__button md-logo" aria-label="CAVE-nvq" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    CAVE-nvq
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/CAVEconnectome/CAVEnvq/" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    CAVEconnectome/CAVEnvq
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    About
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    About
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cave-and-neuvue" class="md-nav__link">
+    <span class="md-ellipsis">
+      CAVE and Neuvue
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cave-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      CAVE Tables
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CAVE Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#table-creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table creation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-and-distributing-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating and distributing tasks
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-task-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating Task Status
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-new-annotations-from-finished-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generating New Annotations from Finished Tasks
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="example/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Example
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+      
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+    <a href="reference/reference/" class="md-nav__link">
+      
+  
+  <span class="md-ellipsis">
+    Function Reference
+  </span>
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="cave-neuvuequeue-integration">CAVE-NeuvueQueue Integration</h1>
+<p>The <code>cavenvq</code> package is designed to bridge two systems used for dealing with proofreading and analysis of large 3d EM volumes.
+CAVE is a system designed to handle tracking arbitrary annotations across proofreading, while Neuvue is designed to manage a broad collection of proofreading tasks.</p>
+<p>Integration is designed such that CAVE is the first place proofreading tasks are generated and the ultimate place where task status is recorded.
+The <code>cavenvq</code> system handles synchronized distribution of CAVE tasks.
+Tasks are uploaded to CAVE and sent to Neuvue in parallel.
+As proofreading occurs, one can run code here to update the status of specified CAVE tables to reflect the completion of various subtasks.
+Finally, when a subtask is finished, pre-defined rules can specify new annotations to generate.</p>
+<h2 id="cave-and-neuvue">CAVE and Neuvue</h2>
+<p>CAVE tables track arbitrary annotations.
+The main level of organization in CAVE is the table, which is a collection of annotations following the same schema, and the annotation, which is a row in the table.
+Annotations are typically associated with a point in space to allow tracking of objects across proofreading.</p>
+<p>The main organizing level for tasks in Neuvue is the <strong>namespace</strong>, which is a collection of tasks that are related in some way and share basic properties like dataset.
+The person who creates a task is its <strong>author</strong> and the proofreader/s who will work on it are the <strong>assignees</strong>.
+Tasks have a <strong>status</strong> that can be updated as they are worked on and submitted and a <strong>priority</strong> that can be used to sort tasks.
+The neuroglancer state is saved across time and the final state can be parsed to get information about what the proofreader did by the end of the task.</p>
+<h2 id="cave-tables">CAVE Tables</h2>
+<p>Before getting started, one needs to create a linked pair of CAVE tables.
+The first table can be thought of as the <strong>Task Table</strong>.
+Each entry of this table corresponds to a single proofreading task, which can have one or multiple subtasks, and the ID of a given entry is unique within the table (i.e. this is the Task ID).
+The combination of the name of the Task Table and the annotation ID is thus unique and will remain constant across proofreading.
+The exact schema of the Task Table is flexible and might differ for different task categories depending on what information a manager wants to track or keep handy for reference.
+A basic example might be a <code>bound_tag</code> which has a spatial point and a string field ("tag").
+The spatial point could point to the soma of the neuron to be proofread, for example, and the string field could refer to the Neuvue "namespace" used to manage subtasks.
+Together, these could be used to quickly visualize finished and unfinished neurons and make it easy to look up related tasks in neuvue.
+Ultimately, however, any such values are for book-keeping and not explicitly used in the computational pipelines.</p>
+<p>The second table is the <strong>Task Status Table</strong>, and must be a reference table for the Task Table.
+Entries in the Task Status Table point to specific tasks in the Task Table by Task ID and have a field describing the status.
+The main reason to separate the status from the main task table is that this allows us to update the status as much as we want without changing the unique annotation ID.
+The status is only updated when all current subtasks are finished.
+The Task Status schema should be a <code>reference_tag</code>, which basically amounts to a single text string and a target task ID.</p>
+<p>Individually, the data uploaded would be something like:</p>
+<p><strong>Task Table</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">id</th>
+<th style="text-align: center;">pt_position</th>
+<th style="text-align: center;">tag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">[1,2,3]</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">[4,5,6]</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">[7,8,9]</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+</tr>
+</tbody>
+</table>
+<p>and</p>
+<p><strong>Task Status Table</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">target_id</th>
+<th style="text-align: center;">tag (status)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">finished</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">given</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">given</td>
+</tr>
+</tbody>
+</table>
+<p>However, when querying the Status table these are joined together on task ID and neuron segmentation IDs are looked up, giving:</p>
+<p><strong>Task Tables merged on Task Status</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">id</th>
+<th style="text-align: center;">pt_position</th>
+<th style="text-align: center;">pt_root_id</th>
+<th style="text-align: center;">tag</th>
+<th style="text-align: center;">tag (status)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">[1,2,3]</td>
+<td style="text-align: center;">123123123</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+<td style="text-align: center;">finished</td>
+</tr>
+<tr>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">[4,5,6]</td>
+<td style="text-align: center;">456456456</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+<td style="text-align: center;">given</td>
+</tr>
+<tr>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">[7,8,9]</td>
+<td style="text-align: center;">789789789</td>
+<td style="text-align: center;">my_neuvue_namespace</td>
+<td style="text-align: center;">given</td>
+</tr>
+</tbody>
+</table>
+<h3 id="table-creation">Table creation</h3>
+<p>To fasciliate creating the pair of tables, the <code>cavenvq.create_task_tables</code> function will simplify the process and offer some sensible defaults.
+You pass it a table name and description for the Task Table, and it will create the Task Table and Task Status Table with the simple schema: A "bound tag" for the Task Table (with a spatial point and associated root id as well as a single text field) and a reference "tag" for the Task Status Table (a single text field).</p>
+<p>For example, to create a table called <code>my_nvq_tasks</code> with a description of "A table to track my proofreading tasks", you would run:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">cavenvq</span>
+<span class="kn">import</span> <span class="nn">caveclient</span> <span class="k">as</span> <span class="nn">CAVEclient</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">CAVEclient</span><span class="p">(</span> <span class="s2">&quot;MY_DATASTACK_NAME&quot;</span> <span class="p">)</span> <span class="c1"># Replace with your datastack name</span>
+<span class="n">cavenvq</span><span class="o">.</span><span class="n">create_task_tables</span><span class="p">(</span>
+    <span class="n">table_name</span> <span class="o">=</span> <span class="s2">&quot;my_nvq_tasks&quot;</span><span class="p">,</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;A table to track my proofreading tasks&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>and it would create tables <code>my_nvq_tasks</code> and <code>my_nvq_tasks_status</code>.</p>
+<h3 id="creating-and-distributing-tasks">Creating and distributing tasks</h3>
+<p>Using CAVEnvq to distribute tasks has three steps:</p>
+<ol>
+<li>Create individual <code>Tasks</code> that contain information about what is to be proofread and what should happen after the task is finished.</li>
+<li>Assemble tasks into a <code>TaskList</code> that has information about where to place tasks in CAVE and Nuevue.</li>
+<li>Upload the TaskList to CAVE and Neuvue.</li>
+</ol>
+<p><strong>Creating Tasks</strong></p>
+<p>Each Task is made up of one or more Neuroglancer states, with each state corresponding to a single Nuevue subtask, as well as a variety of metadata to explain what the task is and how to update tables once it is marked as complete.
+Each Task will have one row in the Task Table on CAVE.</p>
+<p>To create a task, you need to provide a <code>Task</code> object with the following fields:</p>
+<ul>
+<li><code>states</code>: One or more links to JSON states that form the initial state for proofreading. Why might we want more than one subtask per task? This is useful when you want to break up a large proofreading task into smaller pieces that can be done in smaller boutes, for example working on different axon branches of the same neuron.
+ (Required)</li>
+<li><code>represtative_point</code> : A point in the volume that is useful for visualizing the task, such as a cell body position. Only used for 
+visualization, not any of the work itself. (Required if the schema includes a point)</li>
+<li><code>annotation_kws</code>: A dictionary of key-value pairs to be used for the Task Table CAVE annotation, in addition to the representative point. For example, this could be <code>{"tag": "my_neuvue_namespace"}</code> if you want to add the namespace in the tag field. (Required as necessary make the annotation match the schema of the Task Table)</li>
+<li><code>instructions</code> : A string describing teh task for the proofreading, for example: "Clean up the dendrite". (optional)</li>
+<li><code>point_field</code> : The field in the Task Table that holds the representative point. Can be omitted if the field is named <code>"pt_position"</code>, just as with the default bound tag. (optional)</li>
+<li><code>assignees</code> : A list of Nuevue usernames or queues to assign the task to. (optional)</li>
+<li><code>seg_id</code> : The root ID of the neuron to be proofread. Can be used for tracking, but is not used for any computation. (optional)</li>
+<li><code>priority</code> : An integer priority for the task. Higher numbers are higher priority. (optional)</li>
+<li><code>existing_task</code> : Set to True if the task already exists. (optional)</li>
+<li><code>id</code> : The annotation ID for a preexisting task, otherwise a new one is created. Only use if you are updating an existing task. (optional)</li>
+</ul>
+<p>A simple task might look like the following, given a neuroglancer state <code>ngl_state</code> and a 3-d location <code>soma_point</code> and using the default schemas desribed above.</p>
+<div class="highlight"><pre><span></span><code><span class="n">task</span> <span class="o">=</span> <span class="n">cavenvq</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span>
+    <span class="n">states</span><span class="o">=</span><span class="n">ngl_state</span><span class="p">,</span>
+    <span class="n">representative_point</span><span class="o">=</span><span class="n">soma_point</span><span class="p">,</span>
+    <span class="n">annotation_kws</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="s1">&#39;my_neuvue_namespace&#39;</span><span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Assembling TaskLists</strong></p>
+<p>The TaskList collects Tasks and carries a description about how to handle them in CAVE and Neuvue.
+Bulk values for several Task properties can also be used to set defaults for all tasks in the list, although the values in the Task object will override these defaults.</p>
+<p>To create a TaskList, you need to provide a <code>TaskList</code> object with the following fields:</p>
+<ul>
+<li><code>tasks</code>: A list of <code>Task</code> objects to be uploaded. (Required)</li>
+<li><code>cave_task_table</code>: The name of the Task Table in CAVE to upload to. (Required)</li>
+<li><code>namespace</code> : The name of the Neuvue namespace to upload to. (Required)</li>
+<li><code>author</code>: The Neuvue username of the person who created the task. (Required)</li>
+<li><code>next_status</code>: The name of the status to update the Task Status to when its subtasks are finished. (Required)</li>
+<li><code>new_tasks</code> : Set True if the tasks are new, False if they are updates from a previously existing collection. This would be False if, for example, tasks correspond to individual cells and this TaskList is the second (or more) go-through of the same cells. (Required)</li>
+</ul>
+<p>Optional TaskList fields are:</p>
+<ul>
+<li><code>initial_status</code>: The status to assign to the tasks when they are first uploaded. (default: "given")</li>
+<li><code>cave_status_table</code>: The name of the Task Status Table in CAVE to upload to. (default: cave_task_table + <code>"_status"</code>)</li>
+<li><code>status_field</code>: The field in the Task Status Table that holds the status. Can be omitted if the field is named <code>"tag"</code>, just as with the default bound tag. (default: "tag")</li>
+<li><code>representative_point_resolution</code>: The resolution of the representative point in nanometers. If none is given, it defaults to the value in the status table.</li>
+<li><code>cave_broadcast_mapping</code>: A dictionary mapping the final neuroglancer state of each subtask to a set of <em>new</em> annotations</li>
+</ul>
+<p>Optional TaskList fields that set default values for all tasks in the list are as follows. In all cases, they just set the default value for the corresponding field in the Task object.</p>
+<ul>
+<li><code>assignees</code></li>
+<li><code>priority</code></li>
+<li><code>annotation_kws</code></li>
+<li><code>task_instruction</code></li>
+</ul>
+<p><strong>Uploading TaskLists</strong></p>
+<p>Tasklists are uploaded to CAVE and Neuvue in a single step through a TaskPublisher object that gets a CAVEclient and a Neuvue client.
+To ensure there are no errors, the TaskList is validated before uploading, and a dry_run can be used to check that the TaskList is valid and working as expected.</p>
+<div class="highlight"><pre><span></span><code><span class="n">taskpub</span> <span class="o">=</span> <span class="n">cavenvq</span><span class="o">.</span><span class="n">TaskPublisher</span><span class="p">(</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">client</span><span class="p">,</span>
+    <span class="n">nvq_client</span> <span class="o">=</span> <span class="n">nvq_client</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># To do a dry run:</span>
+<span class="n">taskpub</span><span class="o">.</span><span class="n">dry_run</span><span class="p">(</span> <span class="n">tasklist</span> <span class="p">)</span>
+
+<span class="c1"># To upload:</span>
+<span class="n">taskpub</span><span class="o">.</span><span class="n">publish_tasks</span><span class="p">(</span><span class="n">tasklist</span><span class="p">)</span>
+</code></pre></div>
+<p>Logs will show the annotations being uploaded to CAVE and Neuvue.</p>
+<h2 id="updating-task-status">Updating Task Status</h2>
+<p>When a Task is complete finished, we want to update the status in the CAVE table.
+Thankfully, when we generated tasks we used the Neuvue metadata to add all of the information needed to update the original task.
+To check if a task is finished, we can use the <code>QueueReader</code> object to check the status of all tasks in a namespace.</p>
+<div class="highlight"><pre><span></span><code><span class="n">reader</span> <span class="o">=</span> <span class="n">cavenvq</span><span class="o">.</span><span class="n">QueueReader</span><span class="p">(</span>
+    <span class="n">caveclient</span> <span class="o">=</span> <span class="n">caveclient</span><span class="p">,</span>
+    <span class="n">nvq_client</span> <span class="o">=</span> <span class="n">nvq_client</span><span class="p">,</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="s2">&quot;my_neuvue_namespace&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Dry run to check status without updating</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">run_update</span><span class="p">(</span><span class="n">dry_run</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Process update</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">run_update</span><span class="p">()</span>
+</code></pre></div>
+<p>This will check <em>all</em> tasks in the namespace and update the status of the corresponding CAVE table entries when all subtasks are finished.
+It will also mark these tasks as processed in Neuvue, so they will not be updated again.
+Note that the <code>run_update</code> method works at the namespace level and does not need specific task IDs.</p>
+<p>The complete table information can also be queried using <code>reader.get_task_data()</code>.
+This will return a pandas DataFrame with all Neuvue rows in the namespace, including the status of the task, its processing status and all metadata.</p>
+<p><strong>Config files</strong></p>
+<p>To make it easier to automate these processes, you can use a config file to store the information needed to connect to CAVE and Neuvue.
+The config file is a TOML file and can be written with the TaskPublisher object when saving out the TaskList originially.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># To write a config file:</span>
+<span class="n">taskpub</span><span class="o">.</span><span class="n">write_config</span><span class="p">(</span> <span class="n">tasklist</span><span class="p">,</span> <span class="s2">&quot;my_config.toml&quot;</span> <span class="p">)</span>
+
+<span class="c1"># To read a config file into a reader</span>
+<span class="n">reader</span> <span class="o">=</span> <span class="n">QueueReader</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span> <span class="n">config_file</span> <span class="o">=</span> <span class="s2">&quot;my_config.toml&quot;</span> <span class="p">)</span>
+</code></pre></div>
+<h2 id="generating-new-annotations-from-finished-tasks">Generating New Annotations from Finished Tasks</h2>
+<p>When a task is finished, we can generate new annotations based on the final state of the proofreading.
+This is done by specifying a <code>cave_broadcast_mapping</code> in the TaskList.</p>
+<p>This mapping is a dictionary that relates annotations in a neuroglancer state to CAVE annotations.
+The first two levels in the dictionary specify the CAVE table name to add annotations to and the neuroglancer layer to take annotations from, respectively.
+The third level species the name of each field in the CAVE table schema, and the forth level gives rules for how to do the mapping.</p>
+<div class="highlight"><pre><span></span><code><span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">TARGET_TABLE_NAME</span> <span class="p">:</span> <span class="p">{</span>
+        <span class="n">NEUROGLANCER_LAYER_NAME</span><span class="p">:</span> <span class="p">{</span>
+            <span class="n">field_name_1</span> <span class="p">:</span> <span class="p">{</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">mapping_type</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span> 
+            <span class="n">field_name_2</span> <span class="p">:</span> <span class="o">...</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>There are a small number of mapping types that can be used.</p>
+<ul>
+<li><code>point</code> : The value is a point in space associated with each annotation in the layer.</li>
+<li><code>description</code> : The value is a string description of the annotation.</li>
+<li><code>tag</code> : The value is a string associated with the annotation tag. Optionally, a list of strings can be provided under the <code>limit_to</code> key to only add annotations from a specific subset of tags. This could be useful if you want to omit, say, "unclear" style annotations.
+Note that Neuroglancer allows more than one tag per annotation, and the current implementation will create one annotation per tag per point by default. For example, two tags on the same point will create two annotations in the CAVE table at the same location.
+To supress this behavior, set the <code>single_tag</code> key to <code>True</code> in the tag mapping, but note that in this case neither tag will be added from multitag annotations.</li>
+<li><code>reference_target</code> : If the broadcast table is a reference table, this will expect the <code>description</code> field to be an integer id for the target of the reference. Currently, all reference tables use the field name <code>target_id</code> for this, but you must specify this field name in the mapping anyway. Because this uses the <code>description</code> field, it is not possible to use this alongside the <code>description</code> mapping type nor should the descriptions be editted in Neuroglancer. You can fill the description fields from <code>nglui</code> by using the <code>description_column</code> parameter of the annotation mapper.</li>
+<li><code>value</code> : The value is a fixed value, given under the <code>value</code> key.</li>
+</ul>
+<p>For example, let's say we have a CAVE table called <code>my_new_annotations</code> that uses the <code>cell_type_local</code> schema with the fields <code>pt_position</code>, <code>cell_type</code> (a string), and <code>classification_system</code> (another string).
+We have a neuroglancer layer called <code>annotations</code> with the tags <code>excitatory</code>, <code>inhibitory</code>, and <code>unknown</code> and a point associated with a collection of neurons.
+The following mapping would map cell type annotations to the <code>cell_type</code> field and assign a fixed value "CellClass" to the <code>classification_system</code> field.</p>
+<div class="highlight"><pre><span></span><code><span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;my_new_annotations&quot;</span> <span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;annotations&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;pt_position&quot;</span> <span class="p">:</span> <span class="p">{</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;point&#39;</span> <span class="p">},</span>
+            <span class="s2">&quot;cell_type&quot;</span> <span class="p">:</span> <span class="p">{</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="s1">&#39;limit_to&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;excitatory&#39;</span><span class="p">,</span> <span class="s1">&#39;inhibitory&#39;</span><span class="p">],</span> <span class="s1">&#39;single_tag&#39;</span><span class="p">:</span> <span class="kc">True</span> <span class="p">},</span>
+            <span class="s2">&quot;classification_system&quot;</span> <span class="p">:</span> <span class="p">{</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span> <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="s1">&#39;CellClass&#39;</span> <span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>It is important that you make sure the schema of the CAVE table matches your mapping and the table already exists.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+        
+          
+          <a href="example/" class="md-footer__link md-footer__link--next" aria-label="Next: Example">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Example
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.indexes", "navigation.instant", "navigation.footer", "navigation.prune", "navigation.tabs", "navigation.tabs.sticky", "toc.follow", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "search.share", "content.code.copy"], "search": "assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.af256bd8.min.js"></script>
+      
+    
+  </body>
+</html>
